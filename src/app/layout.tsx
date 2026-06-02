@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk } from "next/font/google";
-import dynamic from "next/dynamic";
 import "./globals.css";
-
-const SuiProvider = dynamic(() => import("@/components/sui-provider").then(m => ({ default: m.SuiProvider })), {
-  ssr: false,
-});
+import SuiProviderWrapper from "@/components/sui-provider-wrapper";
 
 const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-sans", weight: ["700"] });
 
@@ -18,7 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${grotesk.variable} h-full antialiased`}>
       <body className="min-h-full bg-background">
-        <SuiProvider>{children}</SuiProvider>
+        <SuiProviderWrapper>{children}</SuiProviderWrapper>
       </body>
     </html>
   );

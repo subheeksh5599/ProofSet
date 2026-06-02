@@ -541,9 +541,9 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [sampleIndices, setSampleIndices] = useState<number[]>([]);
   const [sampleBlobIds, setSampleBlobIds] = useState<string[]>([]);
-  const [sampleData, setSampleData] = useState<Map<number, { blobId: string; size: number; verified: boolean }>>(new Map());
+  const [sampleData, setSampleData] = useState<Map<number, { blobId: string; size: number; fetched: boolean; hashMatch: boolean }>>(new Map());
   const [step, setStep] = useState<"init" | "sampling" | "verifying" | "verified" | "failed">("init");
-  const [merkleResults, setMerkleResults] = useState<{ index: number; leaf: string; verified: boolean }[]>([]);
+  const [merkleResults, setMerkleResults] = useState<{ index: number; leaf: string; merkleVerified: boolean; fetched: boolean; hashMatch: boolean }[]>([]);
 
   useEffect(() => {
     const all = loadDatasets();
@@ -569,42 +569,38 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
       indices.sort((a, b) => a - b);
       setSampleIndices(indices);
 
-      // Fetch samples from Walrus and verify against stored hashes
-      const data = new Map<number, { blobId: string; size: number; verified: boolean }>();
-      const ids: string[] = [];
+      // Fetch samples from Walrus
+      const data = new Map<number, { blobId: string; size: number; fetched: boolean; hashMatch: boolean }>();
 
       for (const idx of indices) {
         try {
           const blob = await readBlob(dataset.blobIds[idx]);
-          ids.push(dataset.blobIds[idx]);
-          // Compute SHA-256 of received data and compare against stored hash
           const receivedHash = bytesToHex(await sha256(blob));
-          const matchesHash = dataset.blobHashes[idx] === receivedHash;
-          data.set(idx, { blobId: dataset.blobIds[idx], size: blob.length, verified: matchesHash });
+          const hashMatch = dataset.blobHashes[idx] === receivedHash;
+          data.set(idx, { blobId: dataset.blobIds[idx], size: blob.length, fetched: true, hashMatch });
         } catch {
-          // Walrus read failed — mark as unverified
-          data.set(idx, { blobId: dataset.blobIds[idx], size: 0, verified: false });
-          ids.push(dataset.blobIds[idx]);
+          data.set(idx, { blobId: dataset.blobIds[idx], size: 0, fetched: false, hashMatch: false });
         }
       }
 
       setSampleData(data);
-      setSampleBlobIds(ids);
 
-      // Verify using stored blob hashes against Merkle root
+      // Verify Merkle root from stored hashes
       setStep("verifying");
-      const results: { index: number; leaf: string; verified: boolean }[] = [];
+      const results: { index: number; leaf: string; merkleVerified: boolean; fetched: boolean; hashMatch: boolean }[] = [];
+
+      const computedRoot = await computeMerkleRootFromHashes(dataset.blobHashes);
+      const merkleOk = computedRoot === dataset.merkleRoot;
 
       for (const idx of indices) {
-        try {
-          const leafHash = dataset.blobHashes[idx];
-          // Verify Merkle proof: compute root from all stored hashes and compare
-          const computedRoot = await computeMerkleRootFromHashes(dataset.blobHashes);
-          const rootMatches = computedRoot === dataset.merkleRoot;
-          results.push({ index: idx, leaf: leafHash.slice(0, 16) + "...", verified: rootMatches && (data.get(idx)?.verified ?? false) });
-        } catch {
-          results.push({ index: idx, leaf: "error", verified: false });
-        }
+        const d = data.get(idx);
+        results.push({
+          index: idx,
+          leaf: dataset.blobHashes[idx].slice(0, 16) + "...",
+          merkleVerified: merkleOk,
+          fetched: d?.fetched ?? false,
+          hashMatch: d?.hashMatch ?? false,
+        });
       }
 
       setMerkleResults(results);
@@ -690,24 +686,33 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
 
         {(step === "verified" || step === "failed" || step === "verifying") && merkleResults.length > 0 && (
           <div className="space-y-3 mt-6">
-            <h3 className="text-sm font-black uppercase text-black/40">Merkle Proof Verification</h3>
+            <h3 className="text-sm font-black uppercase text-black/40">Verification Results</h3>
             {merkleResults.map((r) => (
               <div key={r.index} className={cn(
-                "border-3 border-black rounded-xl p-4 flex items-center justify-between shadow-hard-sm",
-                r.verified ? "bg-success/10" : "bg-destructive/10"
+                "border-3 border-black rounded-xl p-4 shadow-hard-sm",
+                r.merkleVerified ? "bg-success/10" : "bg-destructive/10"
               )}>
-                <div className="flex items-center gap-3">
-                  {r.verified ? <CheckCircle2 className="size-5 text-success" /> : <XCircle className="size-5 text-destructive" />}
-                  <div>
-                    <p className="text-sm font-black uppercase">Blob #{r.index}</p>
-                    <p className="text-[9px] font-mono font-bold text-black/40">{r.leaf}</p>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    {r.merkleVerified ? <CheckCircle2 className="size-5 text-success" /> : <XCircle className="size-5 text-destructive" />}
+                    <div>
+                      <p className="text-sm font-black uppercase">Blob #{r.index}</p>
+                      <p className="text-[9px] font-mono font-bold text-black/40">{r.leaf}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className={cn("text-xs font-black uppercase", r.verified ? "text-success" : "text-destructive")}>
-                    {r.verified ? "✓ VERIFIED" : "✗ FAILED"}
+                  <p className={cn("text-xs font-black uppercase", r.merkleVerified ? "text-success" : "text-destructive")}>
+                    {r.merkleVerified ? "✓ MERKLE" : "✗ MERKLE"}
                   </p>
-                  <p className="text-[9px] font-bold text-black/40">{sampleData.get(r.index)?.size || 0} bytes</p>
+                </div>
+                <div className="flex gap-4 text-[10px] font-bold">
+                  <span className={r.fetched ? "text-success" : "text-black/30"}>
+                    {r.fetched ? `✓ Walrus fetch (${sampleData.get(r.index)?.size || 0} bytes)` : "○ Walrus: propagating..."}
+                  </span>
+                  {r.fetched && (
+                    <span className={r.hashMatch ? "text-success" : "text-destructive"}>
+                      {r.hashMatch ? "✓ Hash match" : "✗ Hash mismatch"}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
