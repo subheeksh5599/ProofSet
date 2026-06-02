@@ -79,14 +79,5 @@ NEXT_PUBLIC_WALRUS_AGGREGATOR=https://aggregator.walrus-testnet.walrus.space
 ```
 
 ---
-
-## Why ProofSet Wins
-
-- **Real Walrus integration** — blobs uploaded to and fetched from Walrus testnet
-- **Real Sui transactions** — SUI payments via wallet signature
-- **Real cryptography** — SHA-256 Merkle trees with proof verification
-- **Real problem** — AI training data verification is a multi-billion dollar problem
-- **Two-sided marketplace** — not just storage, not just payments, full protocol
-
 ---
 
