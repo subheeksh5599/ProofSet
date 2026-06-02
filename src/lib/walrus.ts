@@ -1,5 +1,5 @@
-const PUBLISHER = "https://publisher.walrus-testnet.walrus.space";
-const AGGREGATOR = "https://aggregator.walrus-testnet.walrus.space";
+const PUBLISHER = process.env.NEXT_PUBLIC_WALRUS_PUBLISHER || "https://publisher.walrus-testnet.walrus.space";
+const AGGREGATOR = process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR || "https://aggregator.walrus-testnet.walrus.space";
 
 export async function uploadBlob(data: Uint8Array): Promise<string> {
   const res = await fetch(`${PUBLISHER}/v1/store?epochs=10`, {
@@ -12,7 +12,9 @@ export async function uploadBlob(data: Uint8Array): Promise<string> {
     throw new Error(`Walrus store failed (${res.status}): ${text}`);
   }
   const result = await res.json();
-  return result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId || "";
+  const blobId = result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId;
+  if (!blobId) throw new Error("Walrus store: no blobId in response");
+  return blobId;
 }
 
 export async function readBlob(blobId: string): Promise<Uint8Array> {

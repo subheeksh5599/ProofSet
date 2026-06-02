@@ -7,11 +7,11 @@ import { cn, formatAddress } from "@/lib/utils";
 import { computeMerkleRoot, generateMerkleProof, verifyMerkleProof, bytesToHex } from "@/lib/merkle";
 import { uploadBlob, readBlob, getBlobUrl } from "@/lib/walrus";
 import { ConnectButton, useCurrentAccount } from "@mysten/dapp-kit";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  ArrowLeft, ArrowRight, CheckCircle2, Database, Download, ExternalLink,
-  FileText, Globe, Loader2, Lock, Plus, Search, Shield, Sparkles,
-  Upload, Wallet, XCircle, Zap,
+  ArrowLeft, CheckCircle2, Database, ExternalLink,
+  FileText, Globe, Loader2, Plus, Search, Shield,
+  Sparkles, Upload, XCircle, Zap,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -187,7 +187,7 @@ function Dashboard({ account, onCreate, onBrowse }: { account: string; onCreate:
   const [samples, setSamples] = useState<SampleRequest[]>([]);
 
   useEffect(() => {
-    setDatasets(loadDatasets().filter(d => d.seller.toLowerCase() === account.toLowerCase()));
+    setDatasets(loadDatasets().filter(d => d.seller?.toLowerCase() === account.toLowerCase()));
     setSamples(loadSamples());
   }, [account]);
 
@@ -464,7 +464,7 @@ function BrowsePage({ account, onBack, onSample }: { account: string; onBack: ()
   useEffect(() => { setDatasets(loadDatasets()); }, []);
 
   const filtered = datasets.filter(d =>
-    d.seller.toLowerCase() !== account.toLowerCase() &&  // don't show own
+    d.seller?.toLowerCase() !== account.toLowerCase() &&  // don't show own
     (d.name.toLowerCase().includes(search.toLowerCase()) ||
      d.description.toLowerCase().includes(search.toLowerCase()))
   );
@@ -556,12 +556,14 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
     setMerkleResults([]);
 
     try {
-      // Pick random indices (pseudo-random from timestamp)
+      // Pick random indices using crypto.getRandomValues
       const indices: number[] = [];
       const available = Math.min(dataset.sampleCount, dataset.blobIds.length);
       const pool = [...Array(dataset.blobIds.length).keys()];
+      const randBytes = new Uint32Array(available);
+      crypto.getRandomValues(randBytes);
       for (let i = 0; i < available; i++) {
-        const randIdx = Math.floor(Math.random() * pool.length);
+        const randIdx = randBytes[i] % pool.length;
         indices.push(pool.splice(randIdx, 1)[0]);
       }
       indices.sort((a, b) => a - b);
@@ -604,7 +606,7 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
           const { root, proof, leaf } = await generateMerkleProof(allBlobs, idx);
           const verified = root === dataset.merkleRoot;
           results.push({ index: idx, leaf: leaf.slice(0, 16) + "...", verified });
-          data.set(idx, { ...data.get(idx)!, verified });
+          data.set(idx, { blobId: data.get(idx)?.blobId || dataset.blobIds[idx], size: data.get(idx)?.size || 0, verified });
         } catch {
           results.push({ index: idx, leaf: "error", verified: false });
         }
@@ -626,8 +628,7 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
       saveSamples(samples);
 
       setStep(results.every(r => r.verified) ? "verified" : "failed");
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
       setStep("failed");
     }
   };
