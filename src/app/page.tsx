@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { cn, formatAddress } from "@/lib/utils";
 import { computeMerkleRoot, computeMerkleRootFromHashes, sha256, bytesToHex } from "@/lib/merkle";
 import { uploadBlob, readBlob, getBlobUrl } from "@/lib/walrus";
-import { ConnectButton, useCurrentAccount, useSignTransactionBlock } from "@mysten/dapp-kit";
+import { ConnectButton, useCurrentAccount, useSignTransaction } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { useSuiClient } from "@mysten/dapp-kit";
 import { motion } from "framer-motion";
@@ -549,7 +549,7 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
   const [payStatus, setPayStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [payTxDigest, setPayTxDigest] = useState("");
 
-  const { mutateAsync: signTransactionBlock } = useSignTransactionBlock();
+  const { mutateAsync: signTransaction } = useSignTransaction();
   const suiClient = useSuiClient();
 
   const handleConfirmPurchase = async () => {
@@ -562,9 +562,9 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
       const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(amountMist)]);
       tx.transferObjects([coin], tx.pure.address(dataset.seller));
       
-      const { signature, transactionBlockBytes } = await signTransactionBlock({ transaction: tx });
+      const { signature, bytes } = await signTransaction({ transaction: tx });
       const result = await suiClient.executeTransactionBlock({
-        transactionBlock: transactionBlockBytes,
+        transactionBlock: bytes,
         signature,
         options: { showEffects: true },
       });
