@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { cn, formatAddress } from "@/lib/utils";
 import { computeMerkleRoot, computeMerkleRootFromHashes, sha256, bytesToHex } from "@/lib/merkle";
 import { uploadBlob, readBlob, getBlobUrl } from "@/lib/walrus";
-import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { ConnectButton, useCurrentAccount, useSignTransactionBlock } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
+import { useSuiClient } from "@mysten/dapp-kit";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, CheckCircle2, Database, ExternalLink,
@@ -548,7 +549,8 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
   const [payStatus, setPayStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [payTxDigest, setPayTxDigest] = useState("");
 
-  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const { mutateAsync: signTransactionBlock } = useSignTransactionBlock();
+  const suiClient = useSuiClient();
 
   const handleConfirmPurchase = async () => {
     if (!dataset) return;
@@ -556,9 +558,17 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
     setPayStatus("sending");
     try {
       const tx = new Transaction();
-      const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(BigInt(dataset.price * 1e9))]);
+      const amountMist = BigInt(Math.floor(dataset.price * 1e9));
+      const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(amountMist)]);
       tx.transferObjects([coin], tx.pure.address(dataset.seller));
-      const result = await signAndExecute({ transaction: tx });
+      
+      const { signature, transactionBlockBytes } = await signTransactionBlock({ transaction: tx });
+      const result = await suiClient.executeTransactionBlock({
+        transactionBlock: transactionBlockBytes,
+        signature,
+        options: { showEffects: true },
+      });
+      
       setPayTxDigest(result.digest);
       setPayStatus("done");
 
