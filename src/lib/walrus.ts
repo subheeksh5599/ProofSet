@@ -2,10 +2,9 @@ const PUBLISHER = process.env.NEXT_PUBLIC_WALRUS_PUBLISHER || "https://publisher
 const AGGREGATOR = process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR || "https://aggregator.walrus-testnet.walrus.space";
 
 export async function uploadBlob(data: Uint8Array): Promise<string> {
-  const res = await fetch(`${PUBLISHER}/v1/store?epochs=10`, {
+  const res = await fetch(`${PUBLISHER}/v1/blobs`, {
     method: "PUT",
     body: data as BodyInit,
-    headers: { "Content-Type": "application/octet-stream" },
   });
   if (!res.ok) {
     const text = await res.text().catch(() => `${res.status}`);
