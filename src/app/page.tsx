@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn, formatAddress } from "@/lib/utils";
-import { computeMerkleRoot, generateMerkleProof, verifyMerkleProof, bytesToHex } from "@/lib/merkle";
+import { computeMerkleRoot, computeMerkleRootFromHashes, sha256, bytesToHex } from "@/lib/merkle";
 import { uploadBlob, readBlob, getBlobUrl } from "@/lib/walrus";
 import { ConnectButton, useCurrentAccount } from "@mysten/dapp-kit";
 import { motion } from "framer-motion";
@@ -569,7 +569,7 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
       indices.sort((a, b) => a - b);
       setSampleIndices(indices);
 
-      // Fetch samples from Walrus
+      // Fetch samples from Walrus and verify against stored hashes
       const data = new Map<number, { blobId: string; size: number; verified: boolean }>();
       const ids: string[] = [];
 
@@ -577,8 +577,12 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
         try {
           const blob = await readBlob(dataset.blobIds[idx]);
           ids.push(dataset.blobIds[idx]);
-          data.set(idx, { blobId: dataset.blobIds[idx], size: blob.length, verified: false });
+          // Compute SHA-256 of received data and compare against stored hash
+          const receivedHash = bytesToHex(await sha256(blob));
+          const matchesHash = dataset.blobHashes[idx] === receivedHash;
+          data.set(idx, { blobId: dataset.blobIds[idx], size: blob.length, verified: matchesHash });
         } catch {
+          // Walrus read failed — mark as unverified
           data.set(idx, { blobId: dataset.blobIds[idx], size: 0, verified: false });
           ids.push(dataset.blobIds[idx]);
         }
@@ -587,26 +591,17 @@ function SamplePage({ account, datasetId, onBack }: { account: string; datasetId
       setSampleData(data);
       setSampleBlobIds(ids);
 
-      // Verify Merkle proofs
+      // Verify using stored blob hashes against Merkle root
       setStep("verifying");
       const results: { index: number; leaf: string; verified: boolean }[] = [];
 
-      // Fetch all blobs for Merkle proof generation
-      const allBlobs: Uint8Array[] = [];
-      for (const blobId of dataset.blobIds) {
-        try {
-          allBlobs.push(await readBlob(blobId));
-        } catch {
-          allBlobs.push(new Uint8Array([]));
-        }
-      }
-
       for (const idx of indices) {
         try {
-          const { root, proof, leaf } = await generateMerkleProof(allBlobs, idx);
-          const verified = root === dataset.merkleRoot;
-          results.push({ index: idx, leaf: leaf.slice(0, 16) + "...", verified });
-          data.set(idx, { blobId: data.get(idx)?.blobId || dataset.blobIds[idx], size: data.get(idx)?.size || 0, verified });
+          const leafHash = dataset.blobHashes[idx];
+          // Verify Merkle proof: compute root from all stored hashes and compare
+          const computedRoot = await computeMerkleRootFromHashes(dataset.blobHashes);
+          const rootMatches = computedRoot === dataset.merkleRoot;
+          results.push({ index: idx, leaf: leafHash.slice(0, 16) + "...", verified: rootMatches && (data.get(idx)?.verified ?? false) });
         } catch {
           results.push({ index: idx, leaf: "error", verified: false });
         }

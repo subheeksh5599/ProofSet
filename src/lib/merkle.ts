@@ -4,9 +4,9 @@
 // Uses SHA-256, runs entirely in browser
 
 export async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  const buf = data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
+  const buf: ArrayBuffer = data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
     ? data.buffer as ArrayBuffer
-    : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    : (data.buffer as ArrayBuffer).slice(data.byteOffset, data.byteOffset + data.byteLength);
   const hash = await crypto.subtle.digest("SHA-256", buf);
   return new Uint8Array(hash);
 }
