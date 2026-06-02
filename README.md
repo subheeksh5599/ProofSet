@@ -90,4 +90,3 @@ NEXT_PUBLIC_WALRUS_AGGREGATOR=https://aggregator.walrus-testnet.walrus.space
 
 ---
 
-Built for the [Tatum x Walrus Hackathon](https://www.tatum.io/hackathon) · June 2026
