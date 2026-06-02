@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { Space_Grotesk } from "next/font/google";
+import dynamic from "next/dynamic";
 import "./globals.css";
-import { SuiProvider } from "@/components/sui-provider";
+
+const SuiProvider = dynamic(() => import("@/components/sui-provider").then(m => ({ default: m.SuiProvider })), {
+  ssr: false,
+});
 
 const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-sans", weight: ["700"] });
 
