@@ -1,38 +1,93 @@
 # ProofSet — Verifiable AI Dataset Marketplace
 
-Buy AI training data. Verify it first. No trust.
+**Buy AI training data. Verify it first. No "trust me bro."**
 
-Sellers upload datasets to **Walrus** decentralized storage. A Merkle root is registered on **Sui**. Buyers request random cryptographic samples — each blob comes with a Merkle proof verified against the on-chain root. Payment releases only after verification passes.
+Sellers upload datasets to **Walrus** decentralized storage. A Merkle root is registered on **Sui** via **Tatum RPC**. Buyers request random cryptographic samples — each blob comes with a Merkle proof verified against the on-chain root. SUI payment releases only after verification passes.
 
-## Stack
+Built for the **Tatum x Walrus Hackathon 2026**.
 
-| Layer | Technology |
-|---|---|
-| Storage | Walrus (testnet) |
-| Blockchain | Sui (testnet, chain 1315) |
-| RPC | Tatum |
-| Frontend | Next.js 16, Tailwind CSS, Framer Motion |
-| Wallet | Sui dApp Kit (@mysten/dapp-kit) |
+---
 
-## Run
+## Demo
 
-```bash
+```
 bun install
 bun run dev
 ```
 
-## How It Works
+1. Connect Sui wallet (testnet)
+2. Create a dataset — upload files → Walrus blobs → Merkle root
+3. Browse datasets → request cryptographic sample
+4. Verify Merkle proofs → confirm purchase in wallet
 
-1. **Upload** — Dataset files uploaded to Walrus. SHA-256 Merkle root computed.
-2. **Register** — Merkle root + metadata stored. On-chain commitment.
-3. **Sample** — Buyer requests N random blobs. Merkle proofs verify each one.
-4. **Pay** — If proofs match, buyer confirms purchase. SUI transferred to seller.
+---
+
+## Architecture
+
+```
+User uploads files
+  → SHA-256 Merkle tree computed over all blobs
+  → Blobs stored on Walrus
+  → Merkle root + metadata registered on Sui
+
+Buyer requests sample
+  → Random blob indices selected (crypto.getRandomValues)
+  → Blobs fetched from Walrus
+  → SHA-256 hash compared against stored commitment
+  → Merkle root verified from stored hashes
+
+Buyer confirms
+  → SUI transferred via wallet (signTransaction)
+  → Dataset marked as purchased
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Endpoint |
+|---|---|---|
+| **Storage** | Walrus | `publisher.walrus-testnet.walrus.space` |
+| **Blockchain** | Sui Testnet | `fullnode.testnet.sui.io` |
+| **Wallet** | Sui dApp Kit v1 | `@mysten/dapp-kit` |
+| **RPC** | Tatum | Enterprise Sui nodes |
+| **Crypto** | SHA-256, Merkle Trees | Web Crypto API |
+| **Frontend** | Next.js 16, Tailwind, Framer Motion | — |
+
+---
+
+## Pages
+
+| Page | What it does |
+|---|---|
+| **Landing** | Hero + how it works + tech pillars |
+| **Dashboard** | My datasets + sample requests |
+| **Create** | Upload files → store on Walrus → compute Merkle root → register |
+| **Browse** | All datasets with blob count, sample count, price in SUI |
+| **Sample Verify** | Random crypto sample → Merkle proof → confirm/dispute |
+| **Payment** | Real on-chain SUI transfer via Sui wallet |
+
+---
 
 ## No .env Required
 
 All endpoints use public testnet defaults. Optional overrides:
 
+```env
+NEXT_PUBLIC_WALRUS_PUBLISHER=https://publisher.walrus-testnet.walrus.space
+NEXT_PUBLIC_WALRUS_AGGREGATOR=https://aggregator.walrus-testnet.walrus.space
 ```
-NEXT_PUBLIC_WALRUS_PUBLISHER  # default: walrus-testnet
-NEXT_PUBLIC_WALRUS_AGGREGATOR # default: walrus-testnet
-```
+
+---
+
+## Why ProofSet Wins
+
+- **Real Walrus integration** — blobs uploaded to and fetched from Walrus testnet
+- **Real Sui transactions** — SUI payments via wallet signature
+- **Real cryptography** — SHA-256 Merkle trees with proof verification
+- **Real problem** — AI training data verification is a multi-billion dollar problem
+- **Two-sided marketplace** — not just storage, not just payments, full protocol
+
+---
+
+Built for the [Tatum x Walrus Hackathon](https://www.tatum.io/hackathon) · June 2026
